@@ -12,6 +12,19 @@ using Statistics
 using LinearAlgebra
 
 # ============================================================================
+# PHYSICAL CONSTANTS
+# ============================================================================
+
+# Cosmological constants
+const UNIVERSE_AGE_YEARS = 13.8e9  # Age of universe in years
+const CMB_TEMPERATURE_K = 2.725     # Cosmic Microwave Background temperature in Kelvin
+const TIMELINE_STEP_YEARS = 1.0e8   # Timeline step size in years
+
+# Density parameter bounds
+const MIN_DENSITY = 0.01  # Minimum density parameter for stability
+const MAX_DENSITY = 0.99  # Maximum density parameter for physical validity
+
+# ============================================================================
 # PARENT UNIVERSE STRUCTURE
 # ============================================================================
 
@@ -80,7 +93,7 @@ function create_parent_universe(seed::Int64)::ParentUniverse
     # Generate cosmological parameters inspired by WMAP/Planck observations
     omega_lambda = 0.65 + randn() * 0.05  # Dark energy density
     omega_m = 0.30 + randn() * 0.03        # Dark matter + baryons
-    omega_b = 0.049 + randn() * 0.005      # Baronic matter
+    omega_b = 0.049 + randn() * 0.005      # Baryonic matter
     h0 = 67 + randn() * 3                   # Hubble constant
     
     # Generate primordial power spectrum (affects large-scale structure)
@@ -128,15 +141,15 @@ function create_child_universe(parent::ParentUniverse,
     
     # Density parameter modifications from parent
     local_density = parent.dark_matter_density + randn() * fluctuation_scale
-    local_density = clamp(local_density, 0.01, 0.99)
+    local_density = clamp(local_density, MIN_DENSITY, MAX_DENSITY)
     
     # Expansion rate variations
     expansion_factor = (1.0 + randn() * 0.15 * generation)
     expansion_rate = parent.hubble_constant * expansion_factor
     
     # Temperature evolution (inverse relationship with age)
-    child_age = rand() * 13.8e9  # Random age up to parent universe age
-    temperature = 2.725 * (parent.hubble_constant / expansion_rate) * (13.8e9 / (child_age + 1.0))
+    child_age = rand() * UNIVERSE_AGE_YEARS  # Random age up to parent universe age
+    temperature = CMB_TEMPERATURE_K * (parent.hubble_constant / expansion_rate) * (UNIVERSE_AGE_YEARS / (child_age + 1.0))
     
     # Create local matter distribution grid
     grid_size = 20 + generation * 5
@@ -230,7 +243,7 @@ function initialize_simulation(num_generations::Int64,
         end
     end
     
-    timeline = collect(0.0:1.0e8:13.8e9)
+    timeline = collect(0.0:TIMELINE_STEP_YEARS:UNIVERSE_AGE_YEARS)
     
     return UniverseSimulation(parent, children, timeline, total_energy)
 end
