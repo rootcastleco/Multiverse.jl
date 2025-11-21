@@ -9,7 +9,6 @@ field theory transformations.
 
 using Random
 using Statistics
-using LinearAlgebra
 
 # ============================================================================
 # PHYSICAL CONSTANTS
@@ -101,8 +100,13 @@ function create_parent_universe(seed::Int64)::ParentUniverse
     n_s = 0.96 + randn() * 0.02             # Spectral index
     ps = @. k_values^(n_s - 1.0)
     
+    # Generate unique ID using timestamp with nanosecond precision and random suffix
+    timestamp_ns = round(Int, time() * 1e9)
+    random_suffix = rand(1000:9999)
+    parent_id = "parent_$(timestamp_ns)_$(random_suffix)"
+    
     return ParentUniverse(
-        "parent_$(round(Int, time()))",
+        parent_id,
         time(),
         omega_lambda,
         omega_m,
@@ -148,8 +152,11 @@ function create_child_universe(parent::ParentUniverse,
     expansion_rate = parent.hubble_constant * expansion_factor
     
     # Temperature evolution (inverse relationship with age)
+    # Use minimum age threshold to prevent unrealistic temperature spikes
     child_age = rand() * UNIVERSE_AGE_YEARS  # Random age up to parent universe age
-    temperature = CMB_TEMPERATURE_K * (parent.hubble_constant / expansion_rate) * (UNIVERSE_AGE_YEARS / (child_age + 1.0))
+    min_age = 1.0e6  # Minimum age threshold: 1 million years
+    effective_age = max(child_age, min_age)
+    temperature = CMB_TEMPERATURE_K * (parent.hubble_constant / expansion_rate) * (UNIVERSE_AGE_YEARS / effective_age)
     
     # Create local matter distribution grid
     grid_size = 20 + generation * 5
@@ -163,8 +170,12 @@ function create_child_universe(parent::ParentUniverse,
     stability = 0.95 - (0.1 * generation / 5.0)
     stability = max(0.1, stability)
     
+    # Generate unique ID using timestamp with nanosecond precision and index
+    timestamp_ns = round(Int, time() * 1e9)
+    child_id = "child_$(timestamp_ns)_gen$(generation)_idx$(index)"
+    
     return ChildUniverse(
-        "child_$(round(Int, time()))_$(index)",
+        child_id,
         parent.id,
         generation,
         time(),
