@@ -124,7 +124,7 @@ Other relevant tools in the ecosystem:
 
 ## References
 
-1. Ayrıbaş, B. (2025). *Effort.jl: A package for cosmological parameter inference using modern programming paradigms*. arXiv:2501.04639.
+1.  (2025). *Effort.jl: A package for cosmological parameter inference using modern programming paradigms*. arXiv:2501.04639.
 
 2. Planck Collaboration. (2020). *Planck 2018 results. VI. Cosmological parameters*. Astronomy & Astrophysics, 641, A6.
 
@@ -134,10 +134,5 @@ Other relevant tools in the ecosystem:
 
 5. Blas, D., Lesgourgues, J., & Tram, T. (2011). The Cosmic Linear Anisotropy Solving System (CLASS). *Journal of Cosmology and Astroparticle Physics*, 2011(07), 034.
 
-## License
 
-[Add your license here]
 
----
-
-*This README was generated from the academic paper describing Multiverse.jl.*
