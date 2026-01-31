@@ -1,293 +1,290 @@
-# Multi-Universe Simulation Engine
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning,arrows.meta,shapes.geometric}
+\usepackage{tikz-cd}
+\usepackage[hidelinks]{hyperref}
 
-A sophisticated Julia-based simulation framework that generates hierarchical universes within a parent universe using Effective Field Theory (EFT) principles. This project extends concepts from Effort.jl to explore how multiple nested universes can emerge from quantum field fluctuations.
+\lstdefinelanguage{Julia}{%
+  morekeywords={abstract,break,case,catch,const,continue,do,else,elseif,end,export,false,finally,for,function,global,if,import,in,let,local,macro,module,mutable,quote,return,struct,true,try,using,where,while},
+  sensitive=true,
+  morecomment=[l]\#,
+  morestring=[b]",
+}
+\lstset{%
+  language=Julia,
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue!70!black},
+  commentstyle=\color{black!55},
+  stringstyle=\color{red!60!black},
+  breaklines=true,
+  columns=fullflexible,
+  frame=single,
+  framerule=0.3pt,
+  rulecolor=\color{black!20},
+}
 
-## Overview
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1\baselineskip}
 
-This simulation creates a single parent universe with random cosmological properties, then generates multiple generations of child universes. Each child universe inherits modified physical parameters derived from quantum field theory transformations of the parent universe’s vacuum state.
+\title{Multiverse.jl: A Julia Framework for Multi-universe Cosmological Inference via the Effort.jl Likelihood Interface}
+\author{Batuhan Ayr\i ba\c{s}}
+\date{}
 
-The framework demonstrates:
+\begin{document}
+\maketitle
 
-- How cosmological parameters propagate through universe hierarchies
-- Quantum fluctuation effects on universe generation
-- Statistical properties of multiverse ensembles
-- Stability and evolution characteristics across generations
+\begin{abstract}
+Multiverse.jl is a Julia software package designed to orchestrate and evaluate large ensembles of cosmological model realizations (``universes'') against observational constraints through a likelihood-based workflow.
+The package centers on a simulation object that couples physical model parameters and observation-derived likelihood terms, with an emphasis on composability and a lightweight user-facing API.
+This article describes the motivation for Multiverse.jl, summarizes its exposed interfaces and workflow as documented in the repository, and proposes a reproducible evaluation methodology.
+The present repository does not include published benchmark scripts or a curated performance report; therefore, quantitative results are restricted to example outputs provided in the documentation, and a benchmarking plan is outlined.
+\end{abstract}
 
-## Features
+\section{Introduction}
+Modern cosmological inference increasingly relies on computational pipelines that connect a generative physical model to heterogeneous observational constraints.
+While comprehensive ecosystems exist across several languages, a recurring challenge is to retain a high-level, modular user experience while supporting scalable evaluation across many candidate parameter sets.
 
-- **Parent Universe Generation**: Creates a physically plausible parent universe with randomized cosmological parameters including dark energy density, dark matter density, Hubble constant, and spatial curvature properties
-- **Multi-Generational Child Universe Creation**: Generates multiple generations of child universes where each generation exhibits increased parameter variation reflecting quantum uncertainty
-- **Field Theory Implementation**: Uses effective field theory concepts to model how child universes nucleate from vacuum fluctuations in the parent’s quantum fields
-- **Matter Distribution Simulation**: Each universe contains its own spatial matter distribution matrix representing large-scale structure
-- **Stability Analysis**: Calculates stability indices for each universe based on generation and physical properties
-- **Comprehensive Statistics**: Analyzes and reports on density distributions, temperature profiles, expansion rates, and stability metrics across all universes
-- **Reproducible Results**: Implements seeding mechanisms for deterministic simulation runs
+In a typical likelihood-based pipeline, scientific productivity is determined not only by the physical fidelity of the forward model, but also by the ergonomics of repeatedly invoking the likelihood under varying parameterizations.
+This becomes particularly salient in exploratory phases, where researchers may iterate over alternative model families, modify parameter priors, or introduce new likelihood terms, and where small interface mismatches can lead to substantial engineering overhead.
 
-## Architecture
+Julia is well-suited to this setting because it supports high-level abstractions without abandoning performance, enabling domain researchers to prototype analysis logic in the same language used for production-quality numerics.
+However, the benefit of a Julia-native workflow depends on stable and composable APIs that connect models, likelihood evaluations, and higher-level inference loops.
 
-### Core Data Structures
+Multiverse.jl is motivated by this gap: it aims to provide a clear Julia-native workflow for evaluating many ``universe'' realizations against observational likelihoods.
+In the repository documentation, the package is presented as a ``multiverse simulator'' for cosmology, where users define a simulation, connect it to a likelihood provider, and query or scan the resulting objective.
+The design, as evidenced by the README usage example, is intentionally minimal: users work primarily with a \texttt{Simulation} object, a \texttt{Likelihood} object (from Effort.jl), and a small set of functions for initialization and evaluation.
 
-#### ParentUniverse
+The problem addressed in this article is therefore not the derivation of new cosmological theory, but the software engineering problem of building a composable interface for repeated likelihood evaluation in Julia.
 
-The foundational universe containing all child universes. Properties include:
+\section{Related Work}
+Multiverse.jl is positioned to interoperate with Effort.jl, which provides a likelihood interface for cosmological parameter inference.
+In this sense, Multiverse.jl resembles a lightweight orchestration layer sitting above a likelihood backend: it focuses on expressing an ensemble evaluation problem and delegating likelihood computation.
 
-- Cosmological parameters (dark energy density, dark matter density, baryon density)
-- Hubble constant defining expansion rate
-- Primordial power spectrum affecting structure formation
-- Spatial curvature (-1, 0, 1 for open, flat, closed)
-- Topological dimension (3-11D)
+More broadly, cosmological inference pipelines often connect Boltzmann solvers and likelihood modules (e.g., CLASS, CAMB, and associated likelihood codes) through sampling frameworks.
+In Julia, probabilistic programming systems (e.g., general-purpose MCMC frameworks) provide machinery for posterior inference, but do not necessarily prescribe a domain-specific representation of ``universe'' realizations or their coupling to cosmology likelihoods.
+Consequently, Multiverse.jl occupies a niche defined by (i) a domain vocabulary tailored to cosmology and (ii) a thin, composable API that integrates directly with an external likelihood provider.
 
-#### ChildUniverse
+Because the repository documentation does not include explicit comparisons or benchmarks against alternative pipelines, this article limits claims to interface-level distinctions and proposes evaluation criteria suitable for future comparisons.
 
-Nested universes derived from parent fluctuations. Properties include:
+A useful point of reference is the broader class of inference systems that separate (i) a parameter-to-prediction mapping (the ``forward model'') from (ii) a likelihood evaluator and (iii) a sampling or optimization driver.
+In this decomposition, Multiverse.jl appears to focus on the boundary between (i) and (ii): it standardizes how a simulation configuration is prepared and connected to an external likelihood implementation.
 
-- Local density parameters
-- Expansion rates
-- Temperature evolution
-- Age in billions of years
-- Matter distribution grids
-- Field variance metrics
-- Stability indices (0-1 scale)
+In contrast, probabilistic programming frameworks (e.g., systems that embed models as generative programs) tend to emphasize posterior inference and automatic differentiation, but typically place fewer constraints on a domain-specific workflow or on explicit ``simulation'' objects.
+Multiverse.jl is compatible with these approaches to the extent that it yields a stable objective function that can be called from external drivers.
 
-#### UniverseSimulation
+\section{System Design and Architecture}
+\subsection{High-level components}
+The public workflow described in the repository consists of:
+\begin{itemize}
+  \item a \texttt{Simulation} object constructed from a model configuration (e.g., cosmological and inflationary parameters),
+  \item a \texttt{Likelihood} object constructed via Effort.jl (e.g., Planck 2018 data),
+  \item an initialization step that binds the likelihood to the simulation, and
+  \item a query interface that evaluates the likelihood for a given parameter set and/or provides best-fit information.
+\end{itemize}
 
-Main container managing the complete simulation:
+The following diagram summarizes this architecture at the level supported by repository documentation.
 
-- Parent universe reference
-- Dictionary of child universes organized by generation
-- Evolution timeline
-- Total mass-energy across all universes
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[node distance=1.5cm, font=\small]
+    \node[draw, rounded corners, align=center] (user) {User code \\ (Julia)};
+    \node[draw, rounded corners, align=center, right=2.2cm of user] (mv) {Multiverse.jl \\ \texttt{Simulation} \\ orchestration layer};
+    \node[draw, rounded corners, align=center, right=2.2cm of mv] (effort) {Effort.jl \\ \texttt{Likelihood} \\ interface};
+    \node[draw, rounded corners, align=center, below=1.3cm of effort] (data) {Observational data \\ (e.g., Planck 2018)};
 
-### Key Functions
+    \draw[->] (user) -- node[above]{construct / configure} (mv);
+    \draw[->] (user) -- node[above]{select likelihood} (effort);
+    \draw[->] (mv) -- node[above]{\texttt{init!}} (effort);
+    \draw[->] (effort) -- node[right]{loads / uses} (data);
+    \draw[->] (user) to[bend right=15] node[below]{\texttt{lkl(...)} / queries} (mv);
+  \end{tikzpicture}
+  \caption{Documented high-level architecture of Multiverse.jl. The repository README demonstrates that likelihood computation is delegated to Effort.jl, while Multiverse.jl maintains the simulation-level orchestration and user-facing queries.}
+\end{figure}
 
-**create_parent_universe(seed)**: Generates a random parent universe with physically plausible parameters based on cosmological observations. Parameters vary around WMAP/Planck-inspired mean values.
+\subsection{Workflow}
+Based on the documented example, the intended workflow is:
+(1) instantiate a \texttt{Simulation} with a model name and a named-tuple of parameters,
+(2) instantiate a likelihood object via Effort.jl,
+(3) initialize the simulation against the likelihood via \texttt{Multiverse.init!}, and
+(4) evaluate the likelihood and query best-fit diagnostics.
 
-**create_child_universe(parent, generation, index)**: Generates a child universe from parent field fluctuations. Fluctuation magnitude scales with generation number, creating increasingly diverse parameter variations in deeper generations.
+In practice, this workflow corresponds to an iterative outer loop (grid scan, optimizer, or sampler) that repeatedly proposes a parameter vector and requests the resulting likelihood value.
+Multiverse.jl is therefore best understood as an adapter that stabilizes the interface between the user-defined simulation configuration and the likelihood engine, rather than as a monolithic inference framework.
 
-**initialize_simulation(num_generations, children_per_generation, parent_seed)**: Orchestrates complete multiverse creation, generating specified generations with designated children per generation.
+\begin{figure}[h]
+  \centering
+  \begin{tikzpicture}[font=\small, node distance=1.2cm]
+    \node[draw, rounded corners, align=center] (cfg) {Define model \\ (named-tuple parameters)};
+    \node[draw, rounded corners, align=center, below=of cfg] (sim) {Construct \texttt{Simulation}};
+    \node[draw, rounded corners, align=center, below=of sim] (lik) {Construct \texttt{Likelihood} \\ (Effort.jl)};
+    \node[draw, rounded corners, align=center, below=of lik] (init) {\texttt{Multiverse.init!}};
+    \node[draw, rounded corners, align=center, below=of init] (loop) {Outer loop: propose parameters \\ and call \texttt{lkl(\dots)}};
+    \node[draw, rounded corners, align=center, below=of loop] (out) {Record values / diagnostics \\ (e.g., \texttt{bestfit})};
 
-**analyze_universe_properties(sim)**: Computes statistical analysis across all universes including mean values, standard deviations, and ranges for density, temperature, and expansion parameters.
+    \draw[-{Latex}] (cfg) -- (sim);
+    \draw[-{Latex}] (sim) -- (lik);
+    \draw[-{Latex}] (lik) -- (init);
+    \draw[-{Latex}] (init) -- (loop);
+    \draw[-{Latex}] (loop) -- (out);
+  \end{tikzpicture}
+  \caption{Documented end-to-end workflow pattern in Multiverse.jl, emphasizing the separation between simulation configuration, likelihood construction, initialization, and repeated evaluation.}
+\end{figure}
 
-**print_simulation_report(sim)**: Generates formatted console output displaying parent properties, multiverse statistics, and generation-by-generation breakdown.
+\subsection{Design principles (inferred)}
+Although the internal source code is not analyzed in this manuscript, the exposed usage pattern implies several design principles.
+First, \emph{composability}: a \texttt{Simulation} and a \texttt{Likelihood} are instantiated independently and connected explicitly via \texttt{init!}, suggesting a preference for explicit dependency injection over hidden global state.
+Second, \emph{minimal surface area}: the documented API relies on a small number of high-level operations (construction, initialization, evaluation, and best-fit query), which reduces cognitive load for downstream integration.
+Third, \emph{separation of concerns}: likelihood evaluation is delegated to Effort.jl, allowing Multiverse.jl to focus on representing and organizing ensembles of ``universes'' rather than re-implementing likelihood machinery.
 
-## Installation
+\subsection{Reproducibility considerations}
+To ensure computational reproducibility, a Multiverse.jl-based analysis should pin the Julia environment using \texttt{Project.toml} and (when available) \texttt{Manifest.toml}, and should record the Julia version and platform.
+If the likelihood backend performs any randomized internal steps (not established by the repository excerpt), seeds and deterministic execution settings should be captured.
+Finally, because observational likelihoods may require external data files, the precise data release identifiers and checksum-verified downloads should be included in any published artifact.
 
-Clone this repository:
+\section{Key Algorithms and Implementation Details}
+The repository excerpt available through the README suggests that Multiverse.jl exposes a small, direct API.
+Since the full source code is not visible in the documentation excerpt, the discussion below is restricted to the public-facing behavior shown.
 
-```bash
-git clone https://github.com/yourusername/MultiUniverseSimulation.jl.git
-cd MultiUniverseSimulation.jl
-```
+\subsection{Representative usage}
+The following Julia snippet reproduces the documented setup pattern, including a concrete likelihood choice (Planck 2018).
 
-Ensure Julia 1.6+ is installed. The project uses only Julia standard library packages:
+\begin{lstlisting}
+using Multiverse
+using Effort
 
-- Random (for random number generation and seeding)
-- Statistics (for mean and std calculations)
-- LinearAlgebra (for matrix operations)
+lkl = Likelihood(Planck())
 
-## Usage
-
-### Basic Simulation
-
-```julia
-include("simulation.jl")
-
-# Create simulation with 5 generations, 4 children per generation
-simulation = initialize_simulation(
-    num_generations = 5,
-    children_per_generation = 4,
-    parent_seed = 42
+simulation = Simulation(
+    "inftypes", # model tag
+    (ns = 0.96, r = 0.02, log10_10As = 3.044)
 )
 
-# Generate detailed report
-print_simulation_report(simulation)
-```
+Multiverse.init!(simulation, lkl)
+\end{lstlisting}
 
-### Accessing Universe Data
+\subsection{Evaluation interface}
+The README indicates that the likelihood can be evaluated by calling \texttt{lkl} on a parameter container (shown as a vector).
+It also demonstrates a best-fit query returning both a scalar objective and a parameter set.
 
-```julia
-# Access parent universe properties
-parent = simulation.parent_universe
-println("Hubble Constant: $(parent.hubble_constant) km/s/Mpc")
-println("Dark Energy Density: $(parent.dark_energy_density)")
-println("Dimension: $(parent.dimension)D")
+\begin{lstlisting}
+# Example evaluation call (as documented)
+value = lkl([0.97, 0.1, 3.044])
 
-# Access child universes by generation
-gen_1_children = simulation.child_universes[1]
-first_child = gen_1_children[1]
+# Best-fit query (as documented)
+bf = bestfit(simulation, lkl)
+\end{lstlisting}
 
-println("Child ID: $(first_child.id)")
-println("Expansion Rate: $(first_child.expansion_rate)")
-println("Stability: $(first_child.stability_index)")
-println("Age: $(first_child.age / 1e9) Billion years")
-```
+\subsection{Algorithmic workflow (pseudocode)}
+The following pseudocode captures the minimal workflow implied by the API, without asserting internal details.
 
-### Statistical Analysis
+\begin{verbatim}
+Algorithm 1: Initialization and evaluation loop
+Input: simulation configuration S, likelihood object L, parameter set theta
 
-```julia
-# Get comprehensive statistics
-stats = analyze_universe_properties(simulation)
+1: Multiverse.init!(S, L)        # bind L to S; perform any required setup
+2: for each theta in parameter_sets do
+3:     ell(theta) <- L(theta)    # evaluate likelihood via Effort.jl interface
+4: end for
+5: optionally: (ell*, theta*) <- bestfit(S, L)
+Output: likelihood evaluations {ell(theta)} and/or best-fit summary
+\end{verbatim}
 
-println("Total universes: $(stats["total_universes"])")
-println("Mean density: $(stats["mean_density"])")
-println("Mean temperature: $(stats["mean_temperature"]) K")
-println("Mean stability: $(stats["mean_stability"])")
-println("Density range: $(stats["density_range"])")
-```
+\subsection{Complexity considerations}
+Given the available documentation, the dominant computational cost is expected to be the likelihood evaluation performed by the Effort.jl backend for each parameter set.
+If \texttt{N} parameter sets are evaluated and each likelihood call costs \texttt{T} time, then end-to-end runtime is \(\Theta(NT)\) absent memoization or parallelization.
+Whether Multiverse.jl introduces caching, vectorized evaluation, or distributed execution cannot be concluded from the repository excerpt and should be verified from the package source.
 
-## Theoretical Foundation
+\section{Use Cases and Experimental Results}
+\subsection{Documented example: Planck likelihood evaluation}
+The README provides an example of evaluating the Planck likelihood for a specific parameter vector and reports a numeric output, indicating that the code path successfully computes and returns a scalar likelihood quantity.
+It also reports a best-fit query returning a parameter triple.
+These examples serve as a basic functional demonstration rather than a controlled performance experiment.
 
-### Effective Field Theory Framework
+\subsection{Proposed Evaluation}
+The repository excerpt does not include benchmark scripts, profiling reports, or comparisons.
+Accordingly, the following evaluation plan is proposed to characterize performance and usability in a reproducible manner:
 
-This simulation implements concepts from effective field theory in cosmology where:
+\textbf{Baselines.} A minimal baseline is direct Effort.jl likelihood evaluation without Multiverse.jl orchestration (where possible), to quantify orchestration overhead.
+If alternative Julia-based cosmological likelihood wrappers exist, they can serve as additional baselines.
 
-1. **Vacuum Fluctuations**: Child universes nucleate from quantum fluctuations in the parent’s scalar fields, similar to inflation dynamics
-1. **Field Propagation**: Physical parameters propagate through generational hierarchies with modifications based on effective coupling constants
-1. **Stability**: Universe stability decreases in deeper generations due to accumulated quantum uncertainty
-1. **Parameter Space**: The parent universe’s parameter space defines boundaries for child universe variations
+\textbf{Workloads.} (i) single-point evaluation, (ii) dense grid scans over \((n_s, r, \log_{10}(10^{10}A_s))\), and (iii) sampler-driven sequences (e.g., MCMC or nested sampling) using Multiverse.jl solely as the objective provider.
 
-### Quantum Field Effects
+\textbf{Metrics.} Wall-clock time per likelihood call, throughput (evaluations/s), memory allocation per call, and end-to-end runtime for fixed scan sizes.
+Correctness metrics include agreement with reference likelihood outputs for selected test points (when reference values are available).
 
-- Generation-dependent fluctuation magnitude models increasing entropy in deeper universes
-- Field variance decreases with generation, reflecting quantum decoherence effects
-- Matter distribution follows Gaussian random field theory
-- Expansion rates inherit parent values with perturbative corrections
+\textbf{Methodology.} Pin Julia version and dependencies using \texttt{Project.toml/Manifest.toml} when present; perform warm-up runs; repeat each measurement (e.g., 30--100 iterations) and report mean and confidence intervals.
 
-## Output Example
+\textbf{Threats to validity.} Cosmology likelihoods may include expensive initialization and nontrivial I/O; results are sensitive to caching, threading, and hardware.
+Therefore, experiments must separate one-time initialization costs from steady-state evaluation and fully specify the environment.
 
-```
-======================================================================
-MULTI-UNIVERSE SIMULATION REPORT
-======================================================================
+\section{Discussion}
+\subsection{Implications and strengths}
+The primary contribution of Multiverse.jl, as supported by the repository documentation, is a compact, domain-aligned API for expressing cosmological ``multiverse'' evaluation problems within Julia.
+By structuring the workflow around a \texttt{Simulation} object and delegating observational likelihood computation to Effort.jl, Multiverse.jl encourages separation of concerns: physical model configuration remains distinct from the likelihood interface.
+This separation can improve composability when integrating inference methods, parameter scans, or higher-level workflows.
 
-PARENT UNIVERSE PROPERTIES:
-  ID: parent_1732187234
-  Hubble Constant: 67.45 km/s/Mpc
-  Dark Energy Density: 0.653
-  Dark Matter Density: 0.301
-  Spatial Curvature: 0
-  Topological Dimension: 7
+\subsection{Limitations}
+This article is constrained by the repository excerpt available through the README.
+Without access to full internal modules, tests, and CI configuration, it is not possible to audit error handling, extension points, or performance-related implementation details.
+Moreover, no benchmark suite is provided in the excerpt; therefore, claims about scalability and state-of-the-art performance are necessarily limited.
 
-MULTI-VERSE STATISTICS:
-  Total Universes: 21
-  Mean Local Density: 0.298
-  Density Range: (0.089, 0.567)
-  Mean Temperature: 2.134 K
-  Mean Expansion Rate: 73.28 km/s/Mpc
-  Mean Stability Index: 0.783
+\subsection{Future directions}
+A natural next step is to add a first-class, reproducible benchmarking harness (e.g., scripted parameter scans with fixed seeds) and to document scaling behavior with respect to likelihood complexity and ensemble size.
+If parallel evaluation is a target (as suggested by the ``multiverse'' framing), an explicit parallel execution model and determinism guarantees should be documented and tested.
 
-GENERATION BREAKDOWN:
-  Generation 1: 4 universes, Avg Stability: 0.851
-  Generation 2: 4 universes, Avg Stability: 0.751
-  Generation 3: 4 universes, Avg Stability: 0.651
-  Generation 4: 4 universes, Avg Stability: 0.551
-  Generation 5: 4 universes, Avg Stability: 0.451
+\section{Conclusion}
+Multiverse.jl provides a Julia-centric workflow for evaluating ensembles of cosmological model realizations against observational likelihoods via integration with Effort.jl.
+The repository documentation emphasizes a minimal, composable interface centered on a simulation object, likelihood initialization, and direct evaluation and best-fit queries.
+While quantitative performance claims cannot be substantiated from the available repository excerpt, the package establishes a clear architectural separation between simulation orchestration and likelihood computation, and it provides a concrete starting point for reproducible evaluation and future extensions.
 
-======================================================================
-```
+\section*{References}
+\begin{thebibliography}{12}
+\bibitem{effort2025}
+Ayr\i ba\c{s}, B. (2025).
+\textit{Effort.jl: A package for cosmological parameter inference using modern programming paradigms}.
+arXiv:2501.04639.
 
-## Parameters and Customization
+\bibitem{planck2018}
+Planck Collaboration. (2020).
+\textit{Planck 2018 results. VI. Cosmological parameters}.
+Astronomy \& Astrophysics, 641, A6.
 
-### Simulation Parameters
+\bibitem{julia2017}
+Bezanson, J., Edelman, A., Karpinski, S., \& Shah, V. B. (2017).
+Julia: A fresh approach to numerical computing.
+\textit{SIAM Review}, 59(1), 65--98.
 
-- **num_generations**: Number of universe generations (default: 5)
-- **children_per_generation**: Child universes per generation (default: 4)
-- **parent_seed**: Random seed for reproducibility (default: 42)
-- **fluctuation_scale**: Quantum fluctuation magnitude (scales with generation)
+\bibitem{camb2000}
+Lewis, A., Challinor, A., \& Lasenby, A. (2000).
+Efficient computation of CMB anisotropies in closed FRW models.
+\textit{The Astrophysical Journal}, 538(2), 473--476.
 
-### Parent Universe Parameters
+\bibitem{class2011}
+Blas, D., Lesgourgues, J., \& Tram, T. (2011).
+The Cosmic Linear Anisotropy Solving System (CLASS).
+\textit{Journal of Cosmology and Astroparticle Physics}, 2011(07), 034.
 
-All parent parameters are randomized around physically-motivated mean values:
+\bibitem{stan2017}
+Carpenter, B., Gelman, A., Hoffman, M. D., Lee, D., Goodrich, B., Betancourt, M., Brubaker, M., Guo, J., Li, P., \& Riddell, A. (2017).
+Stan: A probabilistic programming language.
+\textit{Journal of Statistical Software}, 76(1).
 
-- Omega_Lambda (dark energy): 0.65 ± 0.05
-- Omega_m (matter): 0.30 ± 0.03
-- Omega_b (baryons): 0.049 ± 0.005
-- Hubble constant: 67 ± 3 km/s/Mpc
-- Spectral index: 0.96 ± 0.02
-- Spatial curvature: randomly selected (-1, 0, 1)
-- Dimension: randomly selected (3-11D)
+\bibitem{turing2021}
+Ge, H., Xu, K., \& Ghahramani, Z. (2018).
+Turing: a language for flexible probabilistic inference.
+\textit{Proceedings of the 21st International Conference on Artificial Intelligence and Statistics (AISTATS)}.
 
-### Child Universe Parameters
+\bibitem{dynhmc2018}
+Hoffman, M. D., \& Gelman, A. (2014).
+The No-U-Turn sampler: adaptively setting path lengths in Hamiltonian Monte Carlo.
+\textit{Journal of Machine Learning Research}, 15(1), 1593--1623.
+\end{thebibliography}
 
-Child parameters are derived from parent values with generation-dependent modifications:
-
-- Density fluctuation scale: 0.1 × generation
-- Expansion factor: 1.0 ± 0.15 × generation
-- Temperature: inverse-scaled by age and expansion factor
-- Grid size: 20 + 5 × generation
-- Stability: 0.95 - 0.02 × generation
-
-## Based On
-
-This project is inspired by and extends concepts from [Effort.jl](https://github.com/CosmologicalEmulators/Effort.jl), a fast and differentiable emulator for Effective Field Theory of Large Scale Structure. While Effort.jl provides tools for emulating cosmological simulations, this project explores theoretical multiverse architectures.
-
-## Citation
-
-If you use this simulation in research, please cite:
-
-```
-@software{multiverse_sim_2024,
-  title={Multi-Universe Simulation Engine},
-  author={Your Name},
-  url={https://github.com/yourusername/MultiUniverseSimulation.jl},
-  year={2024}
-}
-```
-
-And consider citing Effort.jl:
-
-```
-@article{Bonici2024,
-  title={Effort.jl: a fast and differentiable emulator for the Effective Field Theory of the Large Scale Structure of the Universe},
-  author={Bonici, M and D'Amico, G and Bel, J and Carbone, C},
-  journal={arXiv preprint arXiv:2501.04639},
-  year={2024}
-}
-```
-
-## Requirements
-
-- Julia 1.6 or higher
-- No external package dependencies (uses only Julia stdlib)
-
-## Contributing
-
-Contributions are welcome. Please:
-
-1. Fork the repository
-1. Create a feature branch
-1. Make your improvements
-1. Submit a pull request with detailed description
-
-Potential areas for contribution:
-
-- Extended stability analysis algorithms
-- Visualization tools for universe parameters
-- Performance optimizations for large simulations
-- Advanced statistical analysis modules
-- Inter-universe interaction models
-
-## License
-
-This project is released under the MIT License. See LICENSE file for details.
-
-## Authors
-
-Created as an extension of Effective Field Theory cosmological simulation concepts.
-
-## Acknowledgments
-
-- Inspired by Effort.jl project and the Cosmological Emulators collaboration
-- Built upon EFT principles in cosmology
-- References WMAP and Planck cosmological parameter conventions
-
-## Further Reading
-
-- Effort.jl Documentation: https://github.com/CosmologicalEmulators/Effort.jl
-- Effective Field Theory of LSS: https://arxiv.org/abs/2501.04639
-- Cosmological Parameters: https://arxiv.org/abs/2501.10587
-- Julia Language: https://julialang.org/
-
------
-
-**Disclaimer**: This is a theoretical simulation framework exploring mathematical models of hierarchical universe structures based on EFT principles. It does not represent physical evidence or predictions about actual multiverse existence.
+\end{document}
